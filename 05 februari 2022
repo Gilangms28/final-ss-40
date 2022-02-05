@@ -1,0 +1,237 @@
+#include <ESP8266WiFi.h>
+#include "ThingSpeak.h"
+// #include <Adafruit_BME280.h>
+#include <Adafruit_Sensor.h>
+
+const char* ssid = "gilang";   // your network SSID (name) 
+const char* password = "12345678";   // your network password
+
+WiFiClient  client;
+
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27,20,4); 
+
+
+
+
+
+unsigned long myChannelNumber = 1;
+const char * myWriteAPIKey = "IT43T4Z62S0UVPZN";
+unsigned long myChannelNumber2 = 2;
+const char * ReadAPIKey = "MD5YUJBWS8PZFL50";
+
+
+unsigned long counterChannelNumber = 1647918;            // Channel ID
+const char * myCounterReadAPIKey = "CCJO4165SWDTSWF9"; // Read API Key
+const int FieldNumber1 = 1;
+
+
+// Timer variables
+unsigned long lastTime = 0;
+unsigned long timerDelay = 30000;
+
+// Variable to hold temperature readings
+float temperatureC;
+//uncomment if you want to get temperature in Fahrenheit
+//float temperatureF;
+
+// Create a sensor object
+// Adafruit_BME280 bme; //BME280 connect to ESP8266 I2C (GPIO 4 = SDA, GPIO 5 = SCL)
+/*
+void initBME(){
+
+  if (!bme.begin(0x76)) {
+    Serial.println("Could not find a valid BME280 sensor, check wiring!");
+    while (1);
+  }
+}
+*/
+#include <SimpleDHT.h>
+
+// for DHT22, 
+//      VCC: 5V or 3V
+//      GND: GND
+//      DATA: 2
+int pinDHT22 = 2;
+//float temperature;
+//float humidity;
+float humidity_send;
+SimpleDHT22 dht22(pinDHT22);
+int pump1 = 13;
+int pump2 = 14;
+void setup() {
+  Serial.begin(115200);  //Initialize serial
+  //initBME();
+
+  lcd.init();   
+  lcd.backlight();
+  
+  WiFi.mode(WIFI_STA);   
+  WiFi.begin(ssid, password);
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+  pinMode(pump1, OUTPUT);
+  pinMode(pump2, OUTPUT);
+ 
+
+
+  
+}
+
+void loop() {
+  // read without samples.
+  // @remark We use read2 to get a float data, such as 10.1*C
+  //    if user doesn't care about the accurate data, use read to get a byte data, such as 10*C.
+  
+  
+  // DHT22 sampling rate is 0.5HZ.
+ // delay(2500);  
+  /// dht22.read2(&temperatureC, &humidity_send, NULL);
+    // Get a new temperature reading
+    temperatureC = random(25, 35);//(float)temperature ;//bme.readTemperature();
+    humidity_send = random (50, 80);//(float)humidity;  
+  
+  if ((millis() - lastTime) > timerDelay) {
+
+  /*
+  int err = SimpleDHTErrSuccess;
+  if ((err =) != SimpleDHTErrSuccess) {
+    Serial.print("Read DHT22 failed, err="); Serial.print(SimpleDHTErrCode(err));
+    Serial.print(","); Serial.println(SimpleDHTErrDuration(err)); delay(2000);
+    return;
+  }
+  */
+  //Serial.print("Sample OK: ");
+  //Serial.print((float)temperatureC); Serial.print(" *C, ");
+  //Serial.print((float)humidity_send); Serial.println(" RH%");
+
+    
+    // Connect or reconnect to WiFi
+    if(WiFi.status() != WL_CONNECTED){
+      Serial.print("Attempting to connect");
+      while(WiFi.status() != WL_CONNECTED){
+        WiFi.begin(ssid, password); 
+        delay(5000);     
+      } 
+      Serial.println("\nConnected.");
+    }
+
+    
+    
+    
+    
+    
+    
+    //Serial.print("Temperature (ºC): ");
+    //Serial.println(temperatureC);
+    
+    //uncomment if you want to get temperature in Fahrenheit
+   
+    ThingSpeak.setField(1, temperatureC);
+    ThingSpeak.setField(2, humidity_send);
+    
+    
+    // Write to ThingSpeak. There are up to 8 fields in a channel, allowing you to store up to 8 different
+    // pieces of information in a channel.  Here, we write to field 1.
+    int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+    //int x = ThingSpeak.writeField(myChannelNumber, 1, temperatureC, myWriteAPIKey);
+
+
+    
+    //uncomment if you want to get temperature in Fahrenheit
+    //int x = ThingSpeak.writeField(myChannelNumber, 1, temperatureF, myWriteAPIKey);
+
+    if(x == 200){
+      Serial.println("Channel update successful.");
+    }
+    else{
+      Serial.println("Problem updating channel. HTTP error code " + String(x));
+    }
+    lastTime = millis();
+
+
+
+    
+  }
+
+long mode_pump = ThingSpeak.readLongField(counterChannelNumber, FieldNumber1, myCounterReadAPIKey);
+Serial.print(mode_pump);
+Serial.print(" ");
+Serial.print(temperatureC);
+Serial.print(" ");
+Serial.println(humidity_send);
+
+
+lcd.setCursor(0,0);
+lcd.print("SMART GARDEN");
+
+
+//////MODE 0
+if(mode_pump == 0){
+
+  digitalWrite (pump1,LOW);
+  digitalWrite (pump2,LOW);
+  
+  lcd.setCursor(0,1);
+  lcd.print("PUMP 1 : OFF");
+  lcd.setCursor(0,2);
+  lcd.print("PUMP 2 : OFF");
+  
+}
+
+
+
+//////mode 1
+if(mode_pump == 1){
+ 
+  digitalWrite (pump1,HIGH);
+  digitalWrite (pump2,LOW);
+
+   lcd.setCursor(0,1);
+  lcd.print("PUMP 1 : ON ");
+  lcd.setCursor(0,2);
+  lcd.print("PUMP 2 : OFF");
+}
+
+/////mode 2
+if(mode_pump == 2){
+  
+  digitalWrite (pump1,LOW);
+  digitalWrite (pump2,HIGH);
+
+   lcd.setCursor(0,1);
+  lcd.print("PUMP 1 : OFF");
+  lcd.setCursor(0,2);
+  lcd.print("PUMP 2 : ON ");
+}
+
+////mode 3 AUTO ANYING
+if(mode_pump == 3){
+
+
+if(temperatureC < 30){
+  digitalWrite (pump1,HIGH);
+  digitalWrite (pump2,HIGH);
+
+   lcd.setCursor(0,1);
+  lcd.print("PUMP 1 : ON ");
+  lcd.setCursor(0,2);
+  lcd.print("PUMP 2 : ON ");
+}
+else{
+  digitalWrite(pump1,LOW);
+  digitalWrite(pump2,LOW);
+
+   lcd.setCursor(0,1);
+  lcd.print("PUMP 1 : OFF");
+  lcd.setCursor(0,2);
+  lcd.print("PUMP 2 : OFF");
+}
+  
+}
+
+
+
+
+  
+}
